@@ -3,7 +3,9 @@ import SwiftUI
 /// DE0CH fork: the Jarvis sign-in and the list of OpenClaw sessions Jarvis runs (Gateway settings).
 struct JarvisSessionsSection: View {
     @Environment(GatewayConnectionController.self) private var gatewayController
-    private var directory: JarvisDirectory { JarvisDirectory.shared }
+    private var directory: JarvisDirectory {
+        JarvisDirectory.shared
+    }
 
     var body: some View {
         Section {
@@ -50,7 +52,6 @@ struct JarvisSessionsSection: View {
         }
     }
 
-    @ViewBuilder
     private func row(_ remote: JarvisRemote) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {

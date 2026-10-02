@@ -48,7 +48,11 @@ struct JarvisModelsTests {
         #expect(JarvisRefusal.isRefusal(finalURL: jarvis, statusCode: 403, contentType: "text/html"))
         #expect(!JarvisRefusal.isRefusal(finalURL: jarvis, statusCode: 403, contentType: "application/json"))
         #expect(!JarvisRefusal.isRefusal(finalURL: jarvis, statusCode: 500, contentType: nil))
-        let token = JarvisDeviceToken(id: "d", clientId: "c", clientSecret: "s", pairedAt: Date(timeIntervalSince1970: 0))
+        let token = JarvisDeviceToken(
+            id: "d",
+            clientId: "c",
+            clientSecret: "s",
+            pairedAt: Date(timeIntervalSince1970: 0))
         #expect(!JarvisRefusal.meansRevoked(token: token, now: Date(timeIntervalSince1970: 10)))
         #expect(JarvisRefusal.meansRevoked(token: token, now: Date(timeIntervalSince1970: 31)))
     }
@@ -77,8 +81,12 @@ struct JarvisModelsTests {
 
     @Test func `sync plan upserts sessions and removes only gone Jarvis gateways`() {
         let started = JarvisRemote(
-            id: "abc123", title: "One", state: .started, model: nil,
-            url: "wss://abc123-s.deyaochen.com", token: "gw")
+            id: "abc123",
+            title: "One",
+            state: .started,
+            model: nil,
+            url: "wss://abc123-s.deyaochen.com",
+            token: "gw")
         let paused = JarvisRemote(id: "def456", title: "Two", state: .paused, model: nil, url: nil, token: nil)
         let previously = [
             "manual|abc123-s.deyaochen.com|443": "abc123",
@@ -86,10 +94,20 @@ struct JarvisModelsTests {
         ]
         let plan = JarvisSyncPlan.make(remotes: [started, paused], previouslyManaged: previously)
         #expect(plan.upserts == [
-            .init(sessionID: "abc123", stableID: "manual|abc123-s.deyaochen.com|443",
-                  host: "abc123-s.deyaochen.com", name: "One", token: "gw", connect: true),
-            .init(sessionID: "def456", stableID: "manual|def456-s.deyaochen.com|443",
-                  host: "def456-s.deyaochen.com", name: "Two", token: nil, connect: false),
+            .init(
+                sessionID: "abc123",
+                stableID: "manual|abc123-s.deyaochen.com|443",
+                host: "abc123-s.deyaochen.com",
+                name: "One",
+                token: "gw",
+                connect: true),
+            .init(
+                sessionID: "def456",
+                stableID: "manual|def456-s.deyaochen.com|443",
+                host: "def456-s.deyaochen.com",
+                name: "Two",
+                token: nil,
+                connect: false),
         ])
         #expect(plan.removals == ["manual|gone99-s.deyaochen.com|443"])
         #expect(plan.managed.count == 2)

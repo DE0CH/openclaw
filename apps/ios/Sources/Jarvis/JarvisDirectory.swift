@@ -125,7 +125,9 @@ final class JarvisDirectory {
     private let anchorProvider = JarvisAuthAnchorProvider()
     private let client = JarvisClient()
 
-    var isPaired: Bool { self.token != nil }
+    var isPaired: Bool {
+        self.token != nil
+    }
 
     init() {
         self.token = JarvisStore.loadToken()
@@ -293,7 +295,7 @@ final class JarvisDirectory {
         var systemInfo = utsname()
         uname(&systemInfo)
         let identifier = withUnsafeBytes(of: &systemInfo.machine) { buffer in
-            String(decoding: buffer.prefix(while: { $0 != 0 }), as: UTF8.self)
+            String(bytes: buffer.prefix(while: { $0 != 0 }), encoding: .utf8) ?? ""
         }
         return identifier.isEmpty ? UIDevice.current.model : identifier
     }

@@ -52,7 +52,9 @@ enum JarvisPairing {
     /// The nonce the app sends as `state` (Jarvis accepts 16–64 of [A-Za-z0-9_-]).
     static func makeState() -> String {
         var bytes = [UInt8](repeating: 0, count: 24)
-        for index in bytes.indices { bytes[index] = UInt8.random(in: 0...255) }
+        for index in bytes.indices {
+            bytes[index] = UInt8.random(in: 0...255)
+        }
         return Data(bytes).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")

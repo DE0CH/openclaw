@@ -27,6 +27,6 @@ struct JarvisDirectoryTests {
         let cookies = JarvisWebAccess.cookies(from: response, for: url)
         #expect(cookies.map(\.name) == ["CF_Authorization"])
         #expect(cookies.first?.domain == "abc123-s.deyaochen.com")
-        #expect(JarvisWebAccess.headers(for: try #require(URL(string: "https://example.com/"))) == nil)
+        #expect(try JarvisWebAccess.headers(for: #require(URL(string: "https://example.com/"))) == nil)
     }
 }
