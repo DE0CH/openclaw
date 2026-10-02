@@ -594,7 +594,12 @@ struct AuthenticatedControlUIWebView: UIViewRepresentable {
         scrollView.horizontalScrollIndicatorInsets = .zero
         scrollView.automaticallyAdjustsScrollIndicatorInsets = false
 
-        webView.load(URLRequest(url: self.url, cachePolicy: .reloadIgnoringLocalCacheData))
+        // DE0CH fork: a Jarvis session host sits behind Cloudflare Access.
+        if let accessHeaders = JarvisWebAccess.headers(for: self.url) {
+            JarvisWebAccess.load(webView, url: self.url, headers: accessHeaders)
+        } else {
+            webView.load(URLRequest(url: self.url, cachePolicy: .reloadIgnoringLocalCacheData))
+        }
         return webView
     }
 

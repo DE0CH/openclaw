@@ -707,6 +707,10 @@ struct OpenClawApp: App {
                     self.appDelegate.scenePhaseChanged(self.scenePhase)
                     self.applyWindowTint()
                     self.gatewayController.setScenePhase(self.scenePhase)
+                    if !Self.screenshotModeEnabled {
+                        // DE0CH fork: mirror Jarvis's OpenClaw sessions on launch.
+                        await JarvisDirectory.shared.refresh(controller: self.gatewayController)
+                    }
                     #if DEBUG
                     if Self.liveActivityVoicePreviewEnabled {
                         LiveActivityManager.shared.startVoicePreview()
@@ -728,6 +732,10 @@ struct OpenClawApp: App {
                     self.gatewayController.setScenePhase(newValue)
                     self.appDelegate.scenePhaseChanged(newValue)
                     self.applyWindowTint()
+                    if newValue == .active, !Self.screenshotModeEnabled {
+                        // DE0CH fork: pick up sessions started or paused while in the background.
+                        Task { await JarvisDirectory.shared.refresh(controller: self.gatewayController) }
+                    }
                 }
         }
     }

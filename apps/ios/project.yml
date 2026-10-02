@@ -496,6 +496,8 @@ targets:
         group: Shared
       - path: Sources/Services/ExactOpaqueIdentifier.swift
         group: Sources/Services
+      - path: Sources/Jarvis/JarvisModels.swift
+        group: Sources/Jarvis
     dependencies:
       - package: OpenClawKit
     settings:

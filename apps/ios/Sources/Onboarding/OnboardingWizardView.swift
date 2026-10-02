@@ -421,7 +421,23 @@ struct OnboardingWizardView: View {
                 self.invalidateSetupAttempt()
                 self.statusLine = ""
                 self.navigate(to: .mode)
+            },
+            onSignInWithJarvis: {
+                Task { await self.signInWithJarvis() }
             })
+    }
+
+    /// DE0CH fork: pair once with Jarvis; its running OpenClaw sessions become this app's gateways.
+    private func signInWithJarvis() async {
+        let directory = JarvisDirectory.shared
+        guard await directory.signIn() else {
+            self.statusLine = directory.statusText ?? ""
+            return
+        }
+        await directory.refresh(controller: self.gatewayController)
+        UserDefaults.standard.set(true, forKey: "gateway.onboardingComplete")
+        OnboardingStateStore.markCompleted(mode: nil)
+        self.onComplete()
     }
 
     @ViewBuilder

@@ -405,7 +405,8 @@ final class GatewayConnectionController {
             return .failed(message)
         }
         var expectedFingerprint = setupFingerprint ?? stored
-        if resolvedUseTLS, expectedFingerprint == nil {
+        // DE0CH fork: Jarvis session hosts (behind Cloudflare) use system trust, no pin prompt.
+        if resolvedUseTLS, expectedFingerprint == nil, !JarvisStore.isManaged(stableID: stableID) {
             guard let url = self.buildGatewayURL(
                 host: host,
                 port: resolvedPort,

@@ -1,0 +1,170 @@
+# DE0CH fork: build the iOS app under Deyao's team (S64YL394S3) and upload it to TestFlight.
+# Cloud-managed signing with the App Store Connect API key: no certificates or profiles in git.
+# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY (the Admin key's .p8 text).
+name: DE0CH iOS TestFlight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/ios/**"
+      - "apps/shared/**"
+      - "apps/swabble/**"
+      - ".github/workflows/de0ch-ios-testflight.yml"
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to TestFlight (false = build and test only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: de0ch-ios-testflight
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24.21.0"
+  IOS_DEVELOPMENT_TEAM: S64YL394S3
+  OPENCLAW_IOS_APP_BUNDLE_ID: dev.de0ch.openclaw
+  OPENCLAW_IOS_APP_GROUP_ID: group.dev.de0ch.openclaw.shared
+  OPENCLAW_IOS_CODE_SIGN_STYLE: Automatic
+  OPENCLAW_IOS_CODE_SIGN_IDENTITY: Apple Development
+  OPENCLAW_IOS_APNS_ENTITLEMENT_ENVIRONMENT: production
+  IOS_SIGNING_REQUIRED: "1"
+
+jobs:
+  testflight:
+    if: github.repository == 'DE0CH/openclaw'
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-node-env
+        with:
+          cache-mode: "off"
+          install-bun: "false"
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Select the newest Xcode
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          swift --version
+
+      - name: Install pinned Swift build tools
+        run: |
+          set -euo pipefail
+          swift_tools_dir="${RUNNER_TEMP}/openclaw-swift-tools"
+          ./scripts/install-xcodegen.sh "$swift_tools_dir"
+          ./scripts/install-swift-tools.sh "$swift_tools_dir"
+          echo "$swift_tools_dir" >> "$GITHUB_PATH"
+
+      - name: Install Watch Rust toolchain
+        if: hashFiles('apps/shared/OpenClawWatchRTC/Cargo.toml') != ''
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          watch_toolchain="$(awk -F '"' '/^channel =/ { print $2; exit }' apps/shared/OpenClawWatchRTC/rust-toolchain.toml)"
+          test -n "$watch_toolchain"
+          rustup toolchain install "$watch_toolchain" --profile minimal --component rust-src
+
+      - name: Write the App Store Connect key
+        env:
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s\n' "$ASC_PRIVATE_KEY" > "$RUNNER_TEMP/asc/key.p8"
+
+      - name: Generate the Xcode project
+        run: |
+          set -euo pipefail
+          ./scripts/ios-configure-signing.sh
+          ./scripts/ios-write-version-xcconfig.sh --build-number "$((1000 + GITHUB_RUN_NUMBER))"
+          node scripts/ios-write-swift-filelist.mjs
+          cd apps/ios
+          xcodegen generate
+          cat .local-signing.xcconfig
+
+      - name: Run the Jarvis tests
+        run: |
+          set -euo pipefail
+          source scripts/lib/swift-toolchain.sh
+          simulator="$(select_ios_test_simulator)"
+          cd apps/ios
+          xcodebuild test \
+            -project OpenClaw.xcodeproj -scheme OpenClaw \
+            -destination "id=$simulator" \
+            -only-testing:OpenClawLogicTests/JarvisModelsTests \
+            -only-testing:OpenClawTests/JarvisDirectoryTests \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -n 200
+          test "${PIPESTATUS[0]}" = 0
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          cd apps/ios
+          set +e
+          xcodebuild archive \
+            -project OpenClaw.xcodeproj -scheme OpenClaw -configuration Release \
+            -destination generic/platform=iOS \
+            -archivePath "$RUNNER_TEMP/OpenClaw.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/key.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > "$RUNNER_TEMP/archive.log" 2>&1
+          status=$?
+          set -e
+          grep -E "error:|warning: .*(provision|sign)|ARCHIVE (SUCCEEDED|FAILED)" "$RUNNER_TEMP/archive.log" | tail -n 120 || true
+          tail -n 40 "$RUNNER_TEMP/archive.log"
+          exit "$status"
+
+      - name: Upload to TestFlight
+        if: github.event_name == 'push' || inputs.upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${IOS_DEVELOPMENT_TEAM}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/OpenClaw.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/key.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"

@@ -138,6 +138,10 @@ extension SettingsProTab {
                 self.gatewayActionStatusView
             }
 
+            // DE0CH fork: sessions discovered from Jarvis.
+            if !self.appModel.isLocalGatewayFixtureEnabled {
+                JarvisSessionsSection()
+            }
             self.gatewaySetupCard
             // Fixtures hide saved gateways, so an empty list would read as unpaired.
             if !self.appModel.isLocalGatewayFixtureEnabled {

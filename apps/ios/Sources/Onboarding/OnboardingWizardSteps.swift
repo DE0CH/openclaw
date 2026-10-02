@@ -274,6 +274,8 @@ struct OnboardingWelcomeStep: View {
     let isConnecting: Bool
     let onScanQRCode: () -> Void
     let onManualSetup: () -> Void
+    /// DE0CH fork: pair with Jarvis instead of scanning a gateway code.
+    var onSignInWithJarvis: (() -> Void)?
 
     var body: some View {
         let statusText = self.statusLine.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -287,6 +289,17 @@ struct OnboardingWelcomeStep: View {
                     .padding(.top, 18)
 
                 VStack(spacing: 36) {
+                    if let onSignInWithJarvis = self.onSignInWithJarvis {
+                        VStack(spacing: 14) {
+                            OnboardingWelcomePrompt(text: "Use your OpenClaw sessions in Jarvis")
+                            Button(action: onSignInWithJarvis) {
+                                Text("Sign In with Jarvis")
+                                    .font(OpenClawType.subheadSemiBold)
+                            }
+                            .buttonStyle(OpenClawPrimaryActionButtonStyle())
+                            .disabled(self.isConnecting)
+                        }
+                    }
                     VStack(spacing: 14) {
                         OnboardingWelcomePrompt(text: "Run this on your gateway host and scan the code")
 
