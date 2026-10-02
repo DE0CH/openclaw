@@ -1,0 +1,40 @@
+# Deyao's fork: pack the OpenClaw npm package on every push to main, publish it as the release asset
+# `openclaw.tgz` on tag `de0ch-<short sha>`, and ask claude-env to pin it in the session image
+# (claude-env: .github/workflows/fork-pin.yml -> selfhost/session-image/forks.json).
+name: de0ch-package
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["apps/ios/**", "apps/android/**", "apps/macos/**", "docs/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: { group: de0ch-package, cancel-in-progress: true }
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "26.x", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: pack
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          mv "$RUNNER_TEMP"/openclaw-*.tgz "$RUNNER_TEMP/openclaw.tgz"
+          ls -la "$RUNNER_TEMP/openclaw.tgz"
+      - name: release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          tag="de0ch-${GITHUB_SHA::12}"
+          gh release create "$tag" "$RUNNER_TEMP/openclaw.tgz" --target "$GITHUB_SHA" --title "$tag" --notes "Packed from $GITHUB_SHA" --prerelease
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+      - name: pin in claude-env
+        env: { GH_TOKEN: "${{ secrets.CLAUDE_ENV_DISPATCH_TOKEN }}" }
+        run: |
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/openclaw.tgz"
+          gh api repos/DE0CH/claude-env/dispatches -f event_type=fork-pin \
+            -F "client_payload[name]=openclaw" -F "client_payload[url]=$url" -F "client_payload[sha]=$GITHUB_SHA"
