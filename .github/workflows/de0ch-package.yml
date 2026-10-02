@@ -21,10 +21,11 @@ jobs:
         with: { node-version: "26.x", cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      # upstream's self-contained packer (a plain `npm pack` can't bundle the workspace's @openclaw/ai)
       - name: pack
         run: |
-          npm pack --pack-destination "$RUNNER_TEMP"
-          mv "$RUNNER_TEMP"/openclaw-*.tgz "$RUNNER_TEMP/openclaw.tgz"
+          node scripts/package-openclaw-for-docker.mjs --skip-build --allow-unreleased-changelog \
+            --output-dir "$RUNNER_TEMP" --output-name openclaw.tgz
           ls -la "$RUNNER_TEMP/openclaw.tgz"
       - name: release
         env: { GH_TOKEN: "${{ github.token }}" }
