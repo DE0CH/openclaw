@@ -1,6 +1,8 @@
-# Deyao's fork: pack the OpenClaw npm package on every push to main, publish it as the release asset
-# `openclaw.tgz` on tag `de0ch-<short sha>`, and ask claude-env to pin it in the session image
-# (claude-env: .github/workflows/fork-pin.yml -> selfhost/session-image/forks.json).
+# Deyao's fork: on every push to main, pack OpenClaw and build the RUNTIME BUNDLE a claude-env session runs
+# it from — Node 26 + OpenClaw installed, one tarball (`openclaw-runtime-linux-x64.tar.gz`) — publish both on
+# tag `de0ch-<short sha>`, and ask claude-env to pin the bundle (claude-env: .github/workflows/fork-pin.yml ->
+# selfhost/session-image/forks.json). The bundle is fetched at first use by an OpenClaw session, not baked
+# into the session image: Fly refuses images over 8 GB unpacked and the image is at that limit.
 name: de0ch-package
 on:
   push:
@@ -27,15 +29,25 @@ jobs:
           node scripts/package-openclaw-for-docker.mjs --skip-build --allow-unreleased-changelog \
             --output-dir "$RUNNER_TEMP" --output-name openclaw.tgz
           ls -la "$RUNNER_TEMP/openclaw.tgz"
+      - name: runtime bundle
+        run: |
+          B="$RUNNER_TEMP/runtime"; mkdir -p "$B"
+          curl -fsSL https://nodejs.org/dist/v26.10.0/node-v26.10.0-linux-x64.tar.xz | tar -xJ -C "$B"
+          mv "$B/node-v26.10.0-linux-x64" "$B/node"
+          PATH="$B/node/bin:$PATH" npm install -g --prefix "$B/openclaw" \
+            --allow-scripts=openclaw,@google/genai,esbuild,koffi,protobufjs "$RUNNER_TEMP/openclaw.tgz"
+          PATH="$B/node/bin:$PATH" "$B/openclaw/bin/openclaw" --version
+          tar -C "$B" -czf "$RUNNER_TEMP/openclaw-runtime-linux-x64.tar.gz" node openclaw
+          ls -la "$RUNNER_TEMP/openclaw-runtime-linux-x64.tar.gz"
       - name: release
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           tag="de0ch-${GITHUB_SHA::12}"
-          gh release create "$tag" "$RUNNER_TEMP/openclaw.tgz" --target "$GITHUB_SHA" --title "$tag" --notes "Packed from $GITHUB_SHA" --prerelease
+          gh release create "$tag" "$RUNNER_TEMP/openclaw.tgz" "$RUNNER_TEMP/openclaw-runtime-linux-x64.tar.gz" --target "$GITHUB_SHA" --title "$tag" --notes "Packed from $GITHUB_SHA" --prerelease
           echo "TAG=$tag" >> "$GITHUB_ENV"
       - name: pin in claude-env
         env: { GH_TOKEN: "${{ secrets.CLAUDE_ENV_DISPATCH_TOKEN }}" }
         run: |
-          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/openclaw.tgz"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/openclaw-runtime-linux-x64.tar.gz"
           gh api repos/DE0CH/claude-env/dispatches -f event_type=fork-pin \
             -F "client_payload[name]=openclaw" -F "client_payload[url]=$url" -F "client_payload[sha]=$GITHUB_SHA"
