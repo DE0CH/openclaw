@@ -100,6 +100,7 @@ jobs:
           cat .local-signing.xcconfig
 
       - name: Run the Jarvis tests
+        # Ad-hoc signed (not CODE_SIGNING_ALLOWED=NO): the header store needs the simulator Keychain.
         run: |
           set -euo pipefail
           source scripts/lib/swift-toolchain.sh
@@ -110,7 +111,7 @@ jobs:
             -destination "id=$simulator" \
             -only-testing:OpenClawLogicTests/JarvisModelsTests \
             -only-testing:OpenClawTests/JarvisDirectoryTests \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
             | tail -n 200
           test "${PIPESTATUS[0]}" = 0
 
