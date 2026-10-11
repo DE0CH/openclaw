@@ -239,6 +239,17 @@ jobs:
           test "${PIPESTATUS[0]}" = 0
           grep -q "EXPORT SUCCEEDED\|Upload succeeded" "$RUNNER_TEMP/export.log"
 
+      - name: Export logs
+        if: failure()
+        run: |
+          for d in "${TMPDIR:-/tmp}"/*.xcdistributionlogs; do
+            [ -d "$d" ] || continue
+            echo "== $d"; ls "$d"
+            for f in "$d"/IDEDistribution.standard.log "$d"/IDEDistribution.critical.log; do
+              [ -f "$f" ] && grep -v -i -E "privatekey|BEGIN PRIVATE" "$f" | grep -i -E -B2 -A8 "error|fail|401|403|auth" | tail -n 200
+            done
+          done
+
       - name: Remove the key
         if: always()
         run: rm -rf "$RUNNER_TEMP/asc"
