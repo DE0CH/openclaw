@@ -1,7 +1,7 @@
-# Deyao's fork: on every push to main, pack OpenClaw and build the RUNTIME BUNDLE a claude-env session runs
+# Deyao's fork: on every push to main, pack OpenClaw and build the RUNTIME BUNDLE a Jarvis 2 session runs
 # it from — Node 26 + OpenClaw installed, one tarball (`openclaw-runtime-linux-x64.tar.gz`) — publish both on
-# tag `de0ch-<short sha>`, and ask claude-env to pin the bundle (claude-env: .github/workflows/fork-pin.yml ->
-# selfhost/session-image/forks.json). The bundle is fetched at first use by an OpenClaw session, not baked
+# tag `de0ch-<short sha>`, and ask DE0CH/jarvis2 to pin the bundle (jarvis2: .github/workflows/fork-pin.yml ->
+# session-image/openclaw-runtime.json, by sha256). The bundle is fetched at first use by an OpenClaw session, not baked
 # into the session image: Fly refuses images over 8 GB unpacked and the image is at that limit.
 name: de0ch-package
 on:
@@ -45,9 +45,9 @@ jobs:
           tag="de0ch-${GITHUB_SHA::12}"
           gh release create "$tag" "$RUNNER_TEMP/openclaw.tgz" "$RUNNER_TEMP/openclaw-runtime-linux-x64.tar.gz" --target "$GITHUB_SHA" --title "$tag" --notes "Packed from $GITHUB_SHA" --prerelease
           echo "TAG=$tag" >> "$GITHUB_ENV"
-      - name: pin in claude-env
-        env: { GH_TOKEN: "${{ secrets.CLAUDE_ENV_DISPATCH_TOKEN }}" }
+      - name: pin in jarvis2
+        # JARVIS2_DISPATCH_TOKEN: fine-grained PAT jarvis2-fork-dispatch, Actions write on DE0CH/jarvis2 only
+        env: { GH_TOKEN: "${{ secrets.JARVIS2_DISPATCH_TOKEN }}" }
         run: |
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/openclaw-runtime-linux-x64.tar.gz"
-          gh api repos/DE0CH/claude-env/dispatches -f event_type=fork-pin \
-            -F "client_payload[name]=openclaw" -F "client_payload[url]=$url" -F "client_payload[sha]=$GITHUB_SHA"
+          gh workflow run fork-pin.yml -R DE0CH/jarvis2 --ref main -f name=openclaw -f "url=$url" -f "sha=$GITHUB_SHA"
