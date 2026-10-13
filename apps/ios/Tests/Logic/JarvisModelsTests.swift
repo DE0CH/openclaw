@@ -32,7 +32,7 @@ struct JarvisModelsTests {
     @Test func `pair URL carries state name model and app`() throws {
         let url = try #require(JarvisPairing.pairURL(state: "s1", deviceName: "Deyao's iPhone", model: "iPhone18,1"))
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        #expect(url.host == "jarvis.deyaochen.com")
+        #expect(url.host == "jarvis2.deyaochen.com")
         #expect(url.path == "/api/devices/pair")
         #expect(items.first { $0.name == "app" }?.value == "openclaw")
         #expect(items.first { $0.name == "name" }?.value == "Deyao's iPhone")
@@ -43,7 +43,7 @@ struct JarvisModelsTests {
 
     @Test func `refusal means an Access page or a non JSON 401 or 403`() throws {
         let access = try #require(URL(string: "https://de0ch.cloudflareaccess.com/cdn-cgi/access/login"))
-        let jarvis = try #require(URL(string: "https://jarvis.deyaochen.com/api/remotes"))
+        let jarvis = try #require(URL(string: "https://jarvis2.deyaochen.com/api/remotes"))
         #expect(JarvisRefusal.isRefusal(finalURL: access, statusCode: 200, contentType: "text/html"))
         #expect(JarvisRefusal.isRefusal(finalURL: jarvis, statusCode: 403, contentType: "text/html"))
         #expect(!JarvisRefusal.isRefusal(finalURL: jarvis, statusCode: 403, contentType: "application/json"))

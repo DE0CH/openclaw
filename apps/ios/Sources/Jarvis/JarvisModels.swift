@@ -1,11 +1,11 @@
 import Foundation
 
-// DE0CH fork: Jarvis (jarvis.deyaochen.com, Deyao's self-hosted Claude cloud) lists every OpenClaw
+// DE0CH fork: Jarvis (jarvis2.deyaochen.com, Deyao's self-hosted Claude cloud) lists every OpenClaw
 // session it runs. The app pairs ONCE with Jarvis (a per-device Cloudflare Access service token) and
 // then shows each session as a gateway. Pure value logic lives here so the logic tests can cover it.
 
 enum JarvisConfig {
-    static let baseURL = URL(string: "https://jarvis.deyaochen.com")!
+    static let baseURL = URL(string: "https://jarvis2.deyaochen.com")!
     static let callbackScheme = "openclaw-de0ch"
     static let appName = "openclaw"
     static let sessionHostSuffix = "-s.deyaochen.com"
